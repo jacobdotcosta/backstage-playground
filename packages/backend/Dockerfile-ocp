@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/nodejs-18
+FROM registry.access.redhat.com/ubi9/nodejs-18 
 # STAGE 1 - Facilitate caching by filtering for package.json files
 # FROM registry.access.redhat.com/ubi9/nodejs-18 AS packages
 
@@ -7,7 +7,6 @@ COPY --chown=1001:0 packages/ packages/
 
 # Remove all files except package.json
 RUN find packages \! -name "package.json" -mindepth 2 -maxdepth 2 -exec rm -rf {} \+
-
 
 # STAGE 2 - Build packages
 # FROM packages AS dependencies
@@ -75,11 +74,12 @@ COPY packages/backend/dist/bundle.tar.gz ./
 RUN tar xzf bundle.tar.gz && rm bundle.tar.gz
 
 # Copy any other files that we need at runtime
-COPY app-config.yaml ./
+COPY app-config.yaml app-config-ocp.yaml ./
+COPY examples/ ./examples/
 
 EXPOSE 7007
 
 RUN fix-permissions ./
 
 # Launch backstage app
-CMD ["node", "packages/backend", "--config", "app-config.yaml"]
+CMD ["node", "packages/backend", "--config", "app-config.yaml", "--config", "app-config-ocp.yaml"]
