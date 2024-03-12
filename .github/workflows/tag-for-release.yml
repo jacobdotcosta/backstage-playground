@@ -1,0 +1,61 @@
+name: Update version and create Release's PR Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+
+jobs:
+  version:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v3
+        - name: Setup Node.js
+          uses: actions/setup-node@v3
+          with:
+            node-version: "18.x"
+        - name: Install dependencies
+          run: npm install
+        - name: Set up Git
+          run: |
+              git config user.name "${{ github.actor }}"
+              git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+        - name: Update the version
+          id: update_version
+          run: |
+            echo "version=$(npm version ${{ github.event.inputs.version }} --no-git-tag-version)" >> $GITHUB_OUTPUT
+        - name: Update package.json
+          id: update_package_json
+          run: |
+            jq '.version = "${{ steps.update_version.outputs.version }}"' package.json | sponge package.json
+            jq '.version = "${{ steps.update_version.outputs.version }}"' packages/app/package.json | sponge packages/app/package.json
+            jq '.version = "${{ steps.update_version.outputs.version }}"' packages/backend/package.json | sponge packages/backend/package.json
+        # - name: Update Changelog
+        #   id: update_changelog
+        #   run: |
+        #     sed -i 's/Unreleased/${{ steps.update_version.outputs.version }}/g' CHANGELOG.md
+        - name: Create pull request
+          id: create_pr
+          uses: peter-evans/create-pull-request@v6
+          with:
+            token: ${{ secrets.GITHUB_TOKEN }}
+            branch: release/${{ steps.update_version.outputs.version }}
+            title: "Release: ${{ steps.update_version.outputs.version }}"
+            body: |
+              Pull request for release ${{ steps.update_version.outputs.version }}.
+
+              This pull request contains all the `package.json` files updated with the new release version
+
+                * `package.json`
+                * `packages/app/package.json`
+                * `packages/backend/package.json`
+            base: main
